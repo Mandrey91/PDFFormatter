@@ -193,8 +193,49 @@ namespace PDF
                             //CODEPART 2.7 Вставка таблицы из файла
 
                             case 6://"[*таблица "
-
                                 {
+                                    //по формату мы задаем, что у нас есть шаблоная строка
+                                    //[*таблица XXXXX*] где XXXXX - имя файла csv с таблицей
+                                    //поэтому эту строку мы должны извлечь
+                                    //при этому убираем ненужные части шаблонной строки
+                                    string csvPath = textParagraph.Replace(templateStringList[i], "")
+                                    .Replace("*", "").Replace("\r", "").Replace("]", "");
+                                    //файл должен лежать рядом с исходным документом
+                                    //поэтому определим полный путь (извлекаем путь до директории текущего документа)
+                                    csvPath = new System.IO.FileInfo(sourcePath).DirectoryName + "\\" + csvPath;
+                                    //считываем строки таблицы
+                                    string[] listRows = System.IO.File.ReadAllLines(csvPath);
+                                    //делим первую строку на ячейки - заголовки таблицы
+                                    string[] listTitle = listRows[0].Split(";,".ToCharArray(),
+                                    StringSplitOptions.RemoveEmptyEntries);
+                                    //создаем таблицу с указанием количества колонок
+                                    PdfPTable table = new PdfPTable(listTitle.Length);
+                                    //заполняем заголовки таблицы
+                                    for (var k = 0; k < listTitle.Length; k++)
+                                    {
+                                        PdfPCell cell = new PdfPCell(new Phrase(listTitle[k].ToString(),
+                                        new Font(baseFont, fontSizeText, Font.NORMAL)));
+                                        table.AddCell(cell);
+                                    }
+                                    //заполняем таблицу
+                                    for (var j = 1; j < listRows.Length; j++)
+                                    {
+                                        string[] listValues = listRows[j].Split(";,".ToCharArray(),
+                                        StringSplitOptions.RemoveEmptyEntries);
+                                        for (var k = 0; k < listValues.Length; k++)
+
+                                        {
+
+                                            PdfPCell cell = new PdfPCell(new Phrase(listValues[k].ToString(),
+                                            new Font(baseFont, fontSizeText, Font.NORMAL)));
+                                            table.AddCell(cell);
+                                        }
+                                    }
+                                    //добавляем таблицу в документ
+                                    document.Add(table);
+                                    //TODO (задание на 4) применить свое форматирование к таблице: границы, шрифт, цвет шрифта и заливки
+                                    //абзац уже вставлен
+                                    isSetParagraph = true;
                                 }
                                 break;
                             //CODEPART 2.8 Вставка списка литературы
