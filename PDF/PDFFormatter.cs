@@ -240,8 +240,34 @@ namespace PDF
                                 break;
                             //CODEPART 2.8 Вставка списка литературы
                             case 7://"[*cписок литературы*]"
-
                                 {
+                                    //если есть шаблонная строка для места вставки списка литературы
+                                    //собираем список литературы в многострочную строку
+
+                                    string replaceString = "";
+
+                                    for (int j = 0; j < sourceList.Count; j++)
+                                    {
+                                        replaceString = (j + 1).ToString() + ". "
+                                        + sourceList[j].TrimStart('[').TrimEnd(']') + "\r\n";
+                                        //вставляем абзац
+                                        var iparagraph = new Paragraph(replaceString,
+                                        new Font(baseFont, fontSizeText, Font.NORMAL));
+                                        iparagraph.SpacingAfter = 0;
+                                        iparagraph.SpacingBefore = 0;
+                                        iparagraph.FirstLineIndent = 20f;
+                                        iparagraph.ExtraParagraphSpace = 10;
+                                        iparagraph.Alignment = Element.ALIGN_JUSTIFIED;
+
+                                        document.Add(iparagraph);
+                                    }
+
+                                    //абзац уже вставлен
+                                    isSetParagraph = true;
+                                    //TODO (задание на 5) если полнотекстовая ссылка содержит url (начивается с http), то вставить
+                                    //дополнение
+                                    //Название страницы [Электронный источник] // Название сайта, текущий год. Режим доступа: URL (дата
+                                    //обращения: текущая дата).
                                 }
                                 break;
 
@@ -301,6 +327,84 @@ namespace PDF
                     }
                 }
                 //CODEPART 2.11 Сбор внутритекстовых ссылок на литературу
+                //начинаем проверять внутритекстовые ссылки на литературу
+                string text = textParagraph;
+                //если есть открывающая скобка
+                if (text.Contains("["))
+                {
+                    //посимвольно проходим весь абзац
+                    for (int j = 0; j < text.Length - 1; j++)
+                    {
+                        //если нашли открывающую скобку без последующего символа *
+                        if (text[j] == '[' && text[j + 1] != '*')
+                        {
+
+                            //то начинаем искать закрывающую скобку
+                            int startIndex = j;
+                            int endIndex = startIndex + 1;
+                            while (endIndex < text.Length
+                            &&
+
+                            text[endIndex] != ']')
+
+                            {
+                                endIndex++;
+                            }
+                            string sourceName = "";
+                            //если нашли закрывающую скобку (а не до конца абзаца)
+
+                            if (text[endIndex] == ']')
+                            {
+
+                                //собираем текст между скобками (включая)
+                                for (int k = startIndex; k <= endIndex; k++)
+                                {
+
+                                    sourceName += text[k];
+                                }
+
+                                int index = 0;
+
+                                //если не удалость перевести строку в цифру
+                                //то значит это полный текст ссылки
+                                //тогда, если в списке литературы нет еще такой ссылки
+                                if (!sourceList.Contains(sourceName))
+
+                                {
+                                    //добавляем в список, увеличиваем номер текущей ссылки
+
+                                    sourceList.Add(sourceName);
+                                    _sourceNumber++;
+                                    index = _sourceNumber;
+                                }
+                                else
+                                {
+
+                                    //если же уже источник есть в списке
+                                    for (int k = 0; k < sourceList.Count; k++)
+                                    {
+                                        //то находим его номер
+                                        if (sourceList[k].Contains(sourceName))
+
+                                        {
+
+                                            index = k + 1;
+                                        }
+                                    }
+                                }
+                                //ограничиваем номер ссылки в квадратные скобки
+                                string replaceString = "[" + index.ToString() + "]";
+
+                                //заменяем полнотекстовую ссылку на номер
+                                textParagraph = textParagraph.Replace(sourceName, replaceString);
+                                //двигаемся дальше по абцазу
+
+                                j = endIndex;
+                            }
+                        }
+                    }
+
+                }
                 if (!isSetParagraph)
                 {
                     //вставляем абзац со стандарным форматированием
