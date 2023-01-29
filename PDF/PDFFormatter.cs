@@ -199,16 +199,52 @@ namespace PDF
                             //CODEPART 2.9 Вставка кода из файла
 
                             case 8://"[*код"
-
                                 {
+                                    //если есть шаблонная строка для места вставки кода
+                                    textParagraph = "тут будет ваш код";
+                                    //TODO (задание на 5) вставить код из файла - CourierNew 8 пт одинарный без отступа в рамке
                                 }
                                 break;
 
                             //CODEPART 2.10 Вставка рисунка из файл
 
                             case 9://"[*таблица "
-
                                 {
+                                    //по формату мы задаем, что у нас есть шаблоная строка
+                                    //[*рисунок XXXXX*] где XXXXX - имя файла с рисунком
+
+                                    //поэтому эту строку мы должны извлечь
+
+                                    //при этому убираем ненужные части шаблонной строки
+                                    string jpgPath = textParagraph.Replace(templateStringList[i],
+                                    "").Replace("*", "").Replace("\r", "").Replace("]", "");
+
+
+                                    //файл должен лежать рядом с исходным документом
+                                    //поэтому определим полный путь (извлекаем путь до директории текущего документа)
+                                    jpgPath = new System.IO.FileInfo(sourcePath).DirectoryName
+                                    + "\\" + jpgPath;
+
+                                    //создаем рисунок
+                                    Image jpg = Image.GetInstance(jpgPath);
+                                    jpg.Alignment = Element.ALIGN_CENTER;
+
+                                    jpg.SpacingBefore = 12f;
+                                    //уменьшаем размер рисунка до 50% ширины страницы
+                                    float procent = 90;
+                                    while (jpg.ScaledWidth > PageSize.A4.Width / 2.0f)
+
+                                    {
+                                        jpg.ScalePercent(procent);
+
+                                        procent -= 10;
+
+                                    }
+
+                                    //добавляем рисунок
+                                    document.Add(jpg);
+                                    //абзац уже вставлен
+                                    isSetParagraph = true;
                                 }
                                 break;
 
