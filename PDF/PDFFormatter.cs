@@ -86,8 +86,42 @@ namespace PDF
                             //CODEPART 2.1 Редактирование абзаца заголовка раздела
 
                             case 0:// "[*номер раздела*]"
-
                                 {
+                                    //увеличиваем номер раздела, начинаем нумерацию рисунков и таблиц заново
+                                    //так как из нумерация сквозная по разделу
+                                    _sectionNumber++;
+
+
+                                    _pictureNumber = 0;
+                                    _tableNumber = 0;
+                                    //определяем строку для замены ключевого слова на номер
+                                    string replaceString = _sectionNumber.ToString();
+                                    //заменяем вхождение ключевого слова на номер
+                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
+                                    //если не первый раздел, делаем разрыв
+                                    if (_sectionNumber != 1)
+                                    {
+                                        document.NewPage();
+                                    }
+                                    //вставляем абзац текста
+                                    var iparagraph = new Paragraph(textParagraph,
+                                    new Font(baseFont, 13f, Font.BOLD));
+                                    iparagraph.SpacingAfter = 15f;
+                                    iparagraph.ExtraParagraphSpace = 10;
+                                    iparagraph.Alignment = Element.ALIGN_CENTER;
+                                    document.Add(iparagraph);
+
+                                    Chapter chapter = new Chapter(iparagraph, _sectionNumber);
+                                    document.Add(chapter);
+
+                                    //абзац уже вставлен
+                                    isSetParagraph = true;
+                                    //TODO (задание на 5) дополните код и шаблон, чтобы велась нумерация подразделов, пунктов,
+                                    //подпунктов со своим форматированием
+                                    //1 раздел
+                                    //1.1 подраздел
+                                    //1.1.1 пункт
+                                    //1.1.1.1 подпункт
                                 }
                                 break;
                             //CODEPART 2.1 Редактирование подрисуночной подписи
