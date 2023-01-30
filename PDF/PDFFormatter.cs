@@ -14,6 +14,7 @@ namespace PDF
     {
         private const char NonBreakingSpace = '\u00A0';
 
+        private readonly Dictionary<string, Color> _colors;
 
         /// <summary>текущий номер раздела в тексте</summary>
         private static int _sectionNumber;
@@ -28,11 +29,9 @@ namespace PDF
         /// <summary>путь до выходного файла</summary>
         private string distPath;
         /// <summary>список шаблонных строк в тексте для форматирования</summary>
-        private List<string> templates = new List<string>();
+        private List<string> templates;
         /// <summary>список литературы</summary>
-        private List<string> sourceList = new List<string>();
-
-        private readonly Dictionary<string, Color> _colors;
+        private List<string> sourceList;
 
         public PDFFormatter()
         {
@@ -92,9 +91,8 @@ namespace PDF
                 new FileInfo(sourcePath).DirectoryName + "\\" + @"ARIAL.TTF",
                 BaseFont.IDENTITY_H,
                 BaseFont.NOT_EMBEDDED);
+
             //считываем все строки из текстового файла
-/*            IEnumerable<string> paragraphs = 
-                .Select(line => RemoveDoubleWhitespaces(line));*/
             IEnumerable<string> paragraphs = NormalizeText(File.ReadAllLines(sourcePath));
 
             //CODEPART 2 обходим все строки файла - параграфы
