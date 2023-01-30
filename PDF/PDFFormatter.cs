@@ -349,43 +349,58 @@ namespace PDF
 
         private void ProcessTableInsertionCase(Document document, float fontSizeText, BaseFont baseFont, string textParagraph, string template)
         {
+            char[] separators = ";,".ToCharArray();
+
             //по формату мы задаем, что у нас есть шаблоная строка
             //[*таблица XXXXX*] где XXXXX - имя файла csv с таблицей
             //поэтому эту строку мы должны извлечь
             //при этому убираем ненужные части шаблонной строки
-            string csvPath = textParagraph.Replace(template, "")
-            .Replace("*", "").Replace("\r", "").Replace("]", "");
+            string csvPath = textParagraph
+                .Replace(template, "")
+                .Replace("*", "")
+                .Replace("\r", "")
+                .Replace("]", "");
             //файл должен лежать рядом с исходным документом
             //поэтому определим полный путь (извлекаем путь до директории текущего документа)
-            csvPath = new System.IO.FileInfo(sourcePath).DirectoryName + "\\" + csvPath;
+            csvPath = new FileInfo(sourcePath).DirectoryName + "\\" + csvPath;
             //считываем строки таблицы
-            string[] listRows = System.IO.File.ReadAllLines(csvPath);
+            string[] lines = File.ReadAllLines(csvPath);
             //делим первую строку на ячейки - заголовки таблицы
-            string[] listTitle = listRows[0].Split(";,".ToCharArray(),
-            StringSplitOptions.RemoveEmptyEntries);
+            string[] titles = lines[0].Split(
+                separators,
+                StringSplitOptions.RemoveEmptyEntries
+                );
+
             //создаем таблицу с указанием количества колонок
-            PdfPTable table = new PdfPTable(listTitle.Length);
+            PdfPTable table = new PdfPTable(titles.Length);
             //заполняем заголовки таблицы
-            for (var k = 0; k < listTitle.Length; k++)
+            foreach (string title in titles)
             {
-                PdfPCell cell = new PdfPCell(new Phrase(listTitle[k].ToString(),
-                new Font(baseFont, fontSizeText, Font.NORMAL)));
+                var font = new Font(baseFont, fontSizeText, Font.NORMAL);
+                var phrase = new Phrase(title, font);
+                var cell = new PdfPCell(phrase);
+
                 table.AddCell(cell);
             }
+
             //заполняем таблицу
-            for (var j = 1; j < listRows.Length; j++)
+            for (int row = 1; row < lines.Length; row++)
             {
-                string[] listValues = listRows[j].Split(";,".ToCharArray(),
-                StringSplitOptions.RemoveEmptyEntries);
-                for (var k = 0; k < listValues.Length; k++)
+                string[] rowValues = lines[row].Split(
+                    separators,
+                    StringSplitOptions.RemoveEmptyEntries
+                    );
 
+                foreach (string value in rowValues)
                 {
+                    var font = new Font(baseFont, fontSizeText, Font.NORMAL);
+                    var phrase = new Phrase(value, font);
+                    var cell = new PdfPCell(phrase);
 
-                    PdfPCell cell = new PdfPCell(new Phrase(listValues[k].ToString(),
-                    new Font(baseFont, fontSizeText, Font.NORMAL)));
                     table.AddCell(cell);
                 }
             }
+
             //добавляем таблицу в документ
             document.Add(table);
         }
