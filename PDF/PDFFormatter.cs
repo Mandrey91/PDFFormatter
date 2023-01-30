@@ -12,34 +12,46 @@ namespace PDF
     public class PDFFormatter
     {
         /// <summary>текущий номер раздела в тексте</summary>
-        static int _sectionNumber = 0;
+        private static int _sectionNumber;
         /// <summary>текущий номер рисунка в тексте<</summary>
-        static int _pictureNumber = 0;
+        private static int _pictureNumber;
         /// <summary>текущий номер таблиц в тексте<</summary>
-        static int _tableNumber = 0;
+        private static int _tableNumber;
         /// <summary>нумерация источников в списке литературы</summary>
-        int _sourceNumber = 0;
+        private int _sourceNumber;
         /// <summary>путь до исходного шаблона</summary>
-        string sourcePath = @"input.txt";
+        private string sourcePath;
         /// <summary>путь до выходного файла</summary>
-        string distPath = @"result.pdf";
+        private string distPath;
         /// <summary>список шаблонных строк в тексте для форматирования</summary>
-        string[] templateStringList =
-        {
-"[*номер раздела*]", //0
-"[*номер рисунка*]", //1
-"[*номер таблицы*]", //2
-"[*ссылка на следующий рисунок*]", //3
-"[*ссылка на предыдущий рисунок*]", //4
-"[*ссылка на таблицу*]", //5
-"[*таблица ", //6
-"[*cписок литературы*]", //7
-"[*код", //8
-"[*рисунок " //9
-
-};
+        private List<string> templates = new List<string>();
         /// <summary>список литературы</summary>
-        List<string> sourceList = new List<string>();
+        private List<string> sourceList = new List<string>();
+
+        public PDFFormatter()
+        {
+            _sectionNumber = 0;
+            _pictureNumber = 0;
+            _tableNumber = 0;
+            _sourceNumber = 0;
+            sourcePath = @"input.txt";
+            distPath = @"result.pdf";
+            templates = new List<string>()
+            {
+                "[*номер раздела*]", //0
+                "[*номер рисунка*]", //1
+                "[*номер таблицы*]", //2
+                "[*ссылка на следующий рисунок*]", //3
+                "[*ссылка на предыдущий рисунок*]", //4
+                "[*ссылка на таблицу*]", //5
+                "[*таблица ", //6
+                "[*cписок литературы*]", //7
+                "[*код", //8
+                "[*рисунок " //9
+            };
+            sourceList = new List<string>();
+        }
+
         public void Make()
         {
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
@@ -72,47 +84,17 @@ namespace PDF
                 //текущий текст параграфа
                 string textParagraph = paragraph;
                 //проверяем, входит ли в параграф ключевое слово
-                for (int i = 0; i < templateStringList.Length; i++)
-
+                foreach (var template in templates)
                 {
-
-                    if (paragraph.Contains(templateStringList[i]))
-
+                    if (paragraph.Contains(template))
                     {
-
+                        var i = templates.ToList().IndexOf(template);
                         switch (i)
                         {
-
                             //CODEPART 2.1 Редактирование абзаца заголовка раздела
-
                             case 0:// "[*номер раздела*]"
                                 {
-                                    //увеличиваем номер раздела, начинаем нумерацию рисунков и таблиц заново
-                                    //так как из нумерация сквозная по разделу
-                                    _sectionNumber++;
-
-
-                                    _pictureNumber = 0;
-                                    _tableNumber = 0;
-                                    //определяем строку для замены ключевого слова на номер
-                                    string replaceString = _sectionNumber.ToString();
-                                    //заменяем вхождение ключевого слова на номер
-                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
-                                    //если не первый раздел, делаем разрыв
-                                    if (_sectionNumber != 1)
-                                    {
-                                        document.NewPage();
-                                    }
-                                    //вставляем абзац текста
-                                    var iparagraph = new Paragraph(textParagraph,
-                                    new Font(baseFont, 13f, Font.BOLD));
-                                    iparagraph.SpacingAfter = 15f;
-                                    iparagraph.ExtraParagraphSpace = 10;
-                                    iparagraph.Alignment = Element.ALIGN_CENTER;
-                                    document.Add(iparagraph);
-
-                                    Chapter chapter = new Chapter(iparagraph, _sectionNumber);
-                                    document.Add(chapter);
+                                    textParagraph = ProcessPageNumberCase(document, baseFont, textParagraph, template);
 
                                     //абзац уже вставлен
                                     isSetParagraph = true;
@@ -128,19 +110,7 @@ namespace PDF
 
                             case 1://"[*номер рисунка*]"
                                 {
-                                    //увеличиваем номер рисунка
-                                    _pictureNumber++;
-                                    //составляем номер рисунка из номера раздела и номера рисунка в разделе
-                                    string replaceString = "Рисунок " + _sectionNumber.ToString()
-                                    + "." + _pictureNumber.ToString() + " –";
-                                    //заменяем вхождение ключевого слова на номер
-                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
-                                    //вставляем абзац текста
-                                    var iparagraph = new Paragraph(textParagraph,
-                                    new Font(baseFont, fontSizeText, Font.ITALIC));
-                                    iparagraph.SpacingAfter = 12f;
-                                    iparagraph.Alignment = Element.ALIGN_CENTER;
-                                    document.Add(iparagraph);
+                                    textParagraph = ProcessPictureNumberCase(document, fontSizeText, baseFont, textParagraph, template);
                                     isSetParagraph = true;
                                 }
                                 break;
@@ -149,16 +119,7 @@ namespace PDF
 
                             case 2://"[*номер таблицы*]"
                                 {
-                                    _tableNumber++;//номер таблицы состоит из номера раздела и номера таблицы
-                                    string replaceString = "Таблица " + _sectionNumber.ToString()
-                                    + "." + _tableNumber.ToString() + " –";
-                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
-                                    var iparagraph = new Paragraph(textParagraph,
-                                    new Font(baseFont, fontSizeText, Font.ITALIC));
-
-                                    iparagraph.SpacingAfter = 12f;
-                                    iparagraph.Alignment = Element.ALIGN_LEFT;
-                                    document.Add(iparagraph);
+                                    textParagraph = ProcessTableNumberCase(document, fontSizeText, baseFont, textParagraph, template);
                                     //абзац уже вставлен
                                     isSetParagraph = true;
                                 }
@@ -166,27 +127,21 @@ namespace PDF
                             //CODEPART 2.4 Вставка ссылки на следующий рисунок
                             case 3://"[*ссылка на следующий рисунок*]"
                                 {
-                                    //заменяем текст на следующий номер рисунка
-                                    string replaceString = _sectionNumber.ToString() + "." + (_pictureNumber + 1).ToString();
-                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
+                                    textParagraph = ProcessNextPictureLinkCase(textParagraph, template);
                                 }
                                 break;
                             //CODEPART 2.5 Вставка ссылки на предыдущий рисунок
 
                             case 4://"[*ссылка на таблицу*]
                                 {
-                                    //заменяем текст на текущий номер рисунка
-                                    string replaceString = _sectionNumber.ToString() + "." + _pictureNumber.ToString();
-                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
+                                    textParagraph = ProcessCurrentPictureLinkCase(textParagraph, template);
                                 }
                                 break;
 
                             //CODEPART 2.6 Вставка ссылки на таблицу
                             case 5://"[*ссылка на таблицу*]"
                                 {
-                                    //заменяем текст на номер следующей таблицы
-                                    string replaceString = _sectionNumber.ToString() + "." + (_tableNumber + 1).ToString();
-                                    textParagraph = textParagraph.Replace(templateStringList[i], replaceString);
+                                    textParagraph = ProcessTableLinkCase(textParagraph, template);
                                 }
                                 break;
 
@@ -194,45 +149,7 @@ namespace PDF
 
                             case 6://"[*таблица "
                                 {
-                                    //по формату мы задаем, что у нас есть шаблоная строка
-                                    //[*таблица XXXXX*] где XXXXX - имя файла csv с таблицей
-                                    //поэтому эту строку мы должны извлечь
-                                    //при этому убираем ненужные части шаблонной строки
-                                    string csvPath = textParagraph.Replace(templateStringList[i], "")
-                                    .Replace("*", "").Replace("\r", "").Replace("]", "");
-                                    //файл должен лежать рядом с исходным документом
-                                    //поэтому определим полный путь (извлекаем путь до директории текущего документа)
-                                    csvPath = new System.IO.FileInfo(sourcePath).DirectoryName + "\\" + csvPath;
-                                    //считываем строки таблицы
-                                    string[] listRows = System.IO.File.ReadAllLines(csvPath);
-                                    //делим первую строку на ячейки - заголовки таблицы
-                                    string[] listTitle = listRows[0].Split(";,".ToCharArray(),
-                                    StringSplitOptions.RemoveEmptyEntries);
-                                    //создаем таблицу с указанием количества колонок
-                                    PdfPTable table = new PdfPTable(listTitle.Length);
-                                    //заполняем заголовки таблицы
-                                    for (var k = 0; k < listTitle.Length; k++)
-                                    {
-                                        PdfPCell cell = new PdfPCell(new Phrase(listTitle[k].ToString(),
-                                        new Font(baseFont, fontSizeText, Font.NORMAL)));
-                                        table.AddCell(cell);
-                                    }
-                                    //заполняем таблицу
-                                    for (var j = 1; j < listRows.Length; j++)
-                                    {
-                                        string[] listValues = listRows[j].Split(";,".ToCharArray(),
-                                        StringSplitOptions.RemoveEmptyEntries);
-                                        for (var k = 0; k < listValues.Length; k++)
-
-                                        {
-
-                                            PdfPCell cell = new PdfPCell(new Phrase(listValues[k].ToString(),
-                                            new Font(baseFont, fontSizeText, Font.NORMAL)));
-                                            table.AddCell(cell);
-                                        }
-                                    }
-                                    //добавляем таблицу в документ
-                                    document.Add(table);
+                                    ProcessTableInsertionCase(document, fontSizeText, baseFont, textParagraph, template);
                                     //TODO (задание на 4) применить свое форматирование к таблице: границы, шрифт, цвет шрифта и заливки
                                     //абзац уже вставлен
                                     isSetParagraph = true;
@@ -241,26 +158,7 @@ namespace PDF
                             //CODEPART 2.8 Вставка списка литературы
                             case 7://"[*cписок литературы*]"
                                 {
-                                    //если есть шаблонная строка для места вставки списка литературы
-                                    //собираем список литературы в многострочную строку
-
-                                    string replaceString = "";
-
-                                    for (int j = 0; j < sourceList.Count; j++)
-                                    {
-                                        replaceString = (j + 1).ToString() + ". "
-                                        + sourceList[j].TrimStart('[').TrimEnd(']') + "\r\n";
-                                        //вставляем абзац
-                                        var iparagraph = new Paragraph(replaceString,
-                                        new Font(baseFont, fontSizeText, Font.NORMAL));
-                                        iparagraph.SpacingAfter = 0;
-                                        iparagraph.SpacingBefore = 0;
-                                        iparagraph.FirstLineIndent = 20f;
-                                        iparagraph.ExtraParagraphSpace = 10;
-                                        iparagraph.Alignment = Element.ALIGN_JUSTIFIED;
-
-                                        document.Add(iparagraph);
-                                    }
+                                    ProcessSourcesInsertionCase(document, fontSizeText, baseFont);
 
                                     //абзац уже вставлен
                                     isSetParagraph = true;
@@ -285,39 +183,7 @@ namespace PDF
 
                             case 9://"[*таблица "
                                 {
-                                    //по формату мы задаем, что у нас есть шаблоная строка
-                                    //[*рисунок XXXXX*] где XXXXX - имя файла с рисунком
-
-                                    //поэтому эту строку мы должны извлечь
-
-                                    //при этому убираем ненужные части шаблонной строки
-                                    string jpgPath = textParagraph.Replace(templateStringList[i],
-                                    "").Replace("*", "").Replace("\r", "").Replace("]", "");
-
-
-                                    //файл должен лежать рядом с исходным документом
-                                    //поэтому определим полный путь (извлекаем путь до директории текущего документа)
-                                    jpgPath = new System.IO.FileInfo(sourcePath).DirectoryName
-                                    + "\\" + jpgPath;
-
-                                    //создаем рисунок
-                                    Image jpg = Image.GetInstance(jpgPath);
-                                    jpg.Alignment = Element.ALIGN_CENTER;
-
-                                    jpg.SpacingBefore = 12f;
-                                    //уменьшаем размер рисунка до 50% ширины страницы
-                                    float procent = 90;
-                                    while (jpg.ScaledWidth > PageSize.A4.Width / 2.0f)
-
-                                    {
-                                        jpg.ScalePercent(procent);
-
-                                        procent -= 10;
-
-                                    }
-
-                                    //добавляем рисунок
-                                    document.Add(jpg);
+                                    ProcessPictureInsertionCase(document, textParagraph, template);
                                     //абзац уже вставлен
                                     isSetParagraph = true;
                                 }
@@ -327,84 +193,7 @@ namespace PDF
                     }
                 }
                 //CODEPART 2.11 Сбор внутритекстовых ссылок на литературу
-                //начинаем проверять внутритекстовые ссылки на литературу
-                string text = textParagraph;
-                //если есть открывающая скобка
-                if (text.Contains("["))
-                {
-                    //посимвольно проходим весь абзац
-                    for (int j = 0; j < text.Length - 1; j++)
-                    {
-                        //если нашли открывающую скобку без последующего символа *
-                        if (text[j] == '[' && text[j + 1] != '*')
-                        {
-
-                            //то начинаем искать закрывающую скобку
-                            int startIndex = j;
-                            int endIndex = startIndex + 1;
-                            while (endIndex < text.Length
-                            &&
-
-                            text[endIndex] != ']')
-
-                            {
-                                endIndex++;
-                            }
-                            string sourceName = "";
-                            //если нашли закрывающую скобку (а не до конца абзаца)
-
-                            if (text[endIndex] == ']')
-                            {
-
-                                //собираем текст между скобками (включая)
-                                for (int k = startIndex; k <= endIndex; k++)
-                                {
-
-                                    sourceName += text[k];
-                                }
-
-                                int index = 0;
-
-                                //если не удалость перевести строку в цифру
-                                //то значит это полный текст ссылки
-                                //тогда, если в списке литературы нет еще такой ссылки
-                                if (!sourceList.Contains(sourceName))
-
-                                {
-                                    //добавляем в список, увеличиваем номер текущей ссылки
-
-                                    sourceList.Add(sourceName);
-                                    _sourceNumber++;
-                                    index = _sourceNumber;
-                                }
-                                else
-                                {
-
-                                    //если же уже источник есть в списке
-                                    for (int k = 0; k < sourceList.Count; k++)
-                                    {
-                                        //то находим его номер
-                                        if (sourceList[k].Contains(sourceName))
-
-                                        {
-
-                                            index = k + 1;
-                                        }
-                                    }
-                                }
-                                //ограничиваем номер ссылки в квадратные скобки
-                                string replaceString = "[" + index.ToString() + "]";
-
-                                //заменяем полнотекстовую ссылку на номер
-                                textParagraph = textParagraph.Replace(sourceName, replaceString);
-                                //двигаемся дальше по абцазу
-
-                                j = endIndex;
-                            }
-                        }
-                    }
-
-                }
+                textParagraph = UpdateLineAndSourcesList(textParagraph);
                 if (!isSetParagraph)
                 {
                     //вставляем абзац со стандарным форматированием
@@ -421,6 +210,274 @@ namespace PDF
             }
             //закрываем документ
             document.Close();
+        }
+
+        private string UpdateLineAndSourcesList(string textParagraph)
+        {
+            //начинаем проверять внутритекстовые ссылки на литературу
+            string text = textParagraph;
+            //если есть открывающая скобка
+            if (text.Contains("["))
+            {
+                //посимвольно проходим весь абзац
+                for (int j = 0; j < text.Length - 1; j++)
+                {
+                    //если нашли открывающую скобку без последующего символа *
+                    if (text[j] == '[' && text[j + 1] != '*')
+                    {
+
+                        //то начинаем искать закрывающую скобку
+                        int startIndex = j;
+                        int endIndex = startIndex + 1;
+                        while (endIndex < text.Length && text[endIndex] != ']')
+                        {
+                            endIndex++;
+                        }
+                        string sourceName = "";
+                        //если нашли закрывающую скобку (а не до конца абзаца)
+
+                        if (text[endIndex] == ']')
+                        {
+                            //собираем текст между скобками (включая)
+                            for (int k = startIndex; k <= endIndex; k++)
+                            {
+                                sourceName += text[k];
+                            }
+
+                            int index = 0;
+
+                            //если не удалость перевести строку в цифру
+                            //то значит это полный текст ссылки
+                            //тогда, если в списке литературы нет еще такой ссылки
+                            if (!sourceList.Contains(sourceName))
+                            {
+                                //добавляем в список, увеличиваем номер текущей ссылки
+
+                                sourceList.Add(sourceName);
+                                _sourceNumber++;
+                                index = _sourceNumber;
+                            }
+                            else
+                            {
+                                //если же уже источник есть в списке
+                                for (int k = 0; k < sourceList.Count; k++)
+                                {
+                                    //то находим его номер
+                                    if (sourceList[k].Contains(sourceName))
+                                    {
+                                        index = k + 1;
+                                    }
+                                }
+                            }
+                            //ограничиваем номер ссылки в квадратные скобки
+                            string replaceString = "[" + index.ToString() + "]";
+
+                            //заменяем полнотекстовую ссылку на номер
+                            textParagraph = textParagraph.Replace(sourceName, replaceString);
+                            //двигаемся дальше по абцазу
+
+                            j = endIndex;
+                        }
+                    }
+                }
+
+            }
+
+            return textParagraph;
+        }
+
+        private void ProcessPictureInsertionCase(Document document, string textParagraph, string template)
+        {
+            //по формату мы задаем, что у нас есть шаблоная строка
+            //[*рисунок XXXXX*] где XXXXX - имя файла с рисунком
+
+            //поэтому эту строку мы должны извлечь
+
+            //при этому убираем ненужные части шаблонной строки
+            string jpgPath = textParagraph.Replace(template,
+            "").Replace("*", "").Replace("\r", "").Replace("]", "");
+
+
+            //файл должен лежать рядом с исходным документом
+            //поэтому определим полный путь (извлекаем путь до директории текущего документа)
+            jpgPath = new System.IO.FileInfo(sourcePath).DirectoryName
+            + "\\" + jpgPath;
+
+            //создаем рисунок
+            Image jpg = Image.GetInstance(jpgPath);
+            jpg.Alignment = Element.ALIGN_CENTER;
+
+            jpg.SpacingBefore = 12f;
+            //уменьшаем размер рисунка до 50% ширины страницы
+            float procent = 90;
+            while (jpg.ScaledWidth > PageSize.A4.Width / 2.0f)
+
+            {
+                jpg.ScalePercent(procent);
+
+                procent -= 10;
+
+            }
+
+            //добавляем рисунок
+            document.Add(jpg);
+        }
+
+        private void ProcessSourcesInsertionCase(Document document, float fontSizeText, BaseFont baseFont)
+        {
+            //если есть шаблонная строка для места вставки списка литературы
+            //собираем список литературы в многострочную строку
+
+            string replaceString = "";
+
+            for (int j = 0; j < sourceList.Count; j++)
+            {
+                replaceString = (j + 1).ToString() + ". "
+                + sourceList[j].TrimStart('[').TrimEnd(']') + "\r\n";
+                //вставляем абзац
+                var iparagraph = new Paragraph(replaceString,
+                new Font(baseFont, fontSizeText, Font.NORMAL));
+                iparagraph.SpacingAfter = 0;
+                iparagraph.SpacingBefore = 0;
+                iparagraph.FirstLineIndent = 20f;
+                iparagraph.ExtraParagraphSpace = 10;
+                iparagraph.Alignment = Element.ALIGN_JUSTIFIED;
+
+                document.Add(iparagraph);
+            }
+        }
+
+        private void ProcessTableInsertionCase(Document document, float fontSizeText, BaseFont baseFont, string textParagraph, string template)
+        {
+            //по формату мы задаем, что у нас есть шаблоная строка
+            //[*таблица XXXXX*] где XXXXX - имя файла csv с таблицей
+            //поэтому эту строку мы должны извлечь
+            //при этому убираем ненужные части шаблонной строки
+            string csvPath = textParagraph.Replace(template, "")
+            .Replace("*", "").Replace("\r", "").Replace("]", "");
+            //файл должен лежать рядом с исходным документом
+            //поэтому определим полный путь (извлекаем путь до директории текущего документа)
+            csvPath = new System.IO.FileInfo(sourcePath).DirectoryName + "\\" + csvPath;
+            //считываем строки таблицы
+            string[] listRows = System.IO.File.ReadAllLines(csvPath);
+            //делим первую строку на ячейки - заголовки таблицы
+            string[] listTitle = listRows[0].Split(";,".ToCharArray(),
+            StringSplitOptions.RemoveEmptyEntries);
+            //создаем таблицу с указанием количества колонок
+            PdfPTable table = new PdfPTable(listTitle.Length);
+            //заполняем заголовки таблицы
+            for (var k = 0; k < listTitle.Length; k++)
+            {
+                PdfPCell cell = new PdfPCell(new Phrase(listTitle[k].ToString(),
+                new Font(baseFont, fontSizeText, Font.NORMAL)));
+                table.AddCell(cell);
+            }
+            //заполняем таблицу
+            for (var j = 1; j < listRows.Length; j++)
+            {
+                string[] listValues = listRows[j].Split(";,".ToCharArray(),
+                StringSplitOptions.RemoveEmptyEntries);
+                for (var k = 0; k < listValues.Length; k++)
+
+                {
+
+                    PdfPCell cell = new PdfPCell(new Phrase(listValues[k].ToString(),
+                    new Font(baseFont, fontSizeText, Font.NORMAL)));
+                    table.AddCell(cell);
+                }
+            }
+            //добавляем таблицу в документ
+            document.Add(table);
+        }
+
+        private static string ProcessTableLinkCase(string textParagraph, string template)
+        {
+            //заменяем текст на номер следующей таблицы
+            string replaceString = _sectionNumber.ToString() + "." + (_tableNumber + 1).ToString();
+            textParagraph = textParagraph.Replace(template, replaceString);
+            return textParagraph;
+        }
+
+        private static string ProcessCurrentPictureLinkCase(string textParagraph, string template)
+        {
+            //заменяем текст на текущий номер рисунка
+            string replaceString = _sectionNumber.ToString() + "." + _pictureNumber.ToString();
+            textParagraph = textParagraph.Replace(template, replaceString);
+            return textParagraph;
+        }
+
+        private static string ProcessNextPictureLinkCase(string textParagraph, string template)
+        {
+            //заменяем текст на следующий номер рисунка
+            string replaceString = _sectionNumber.ToString() + "." + (_pictureNumber + 1).ToString();
+            textParagraph = textParagraph.Replace(template, replaceString);
+            return textParagraph;
+        }
+
+        private static string ProcessTableNumberCase(Document document, float fontSizeText, BaseFont baseFont, string textParagraph, string template)
+        {
+            _tableNumber++;//номер таблицы состоит из номера раздела и номера таблицы
+            string replaceString = "Таблица " + _sectionNumber.ToString()
+            + "." + _tableNumber.ToString() + " –";
+            textParagraph = textParagraph.Replace(template, replaceString);
+            var iparagraph = new Paragraph(textParagraph,
+            new Font(baseFont, fontSizeText, Font.ITALIC));
+
+            iparagraph.SpacingAfter = 12f;
+            iparagraph.Alignment = Element.ALIGN_LEFT;
+            document.Add(iparagraph);
+            return textParagraph;
+        }
+
+        private static string ProcessPictureNumberCase(Document document, float fontSizeText, BaseFont baseFont, string textParagraph, string template)
+        {
+            //увеличиваем номер рисунка
+            _pictureNumber++;
+            //составляем номер рисунка из номера раздела и номера рисунка в разделе
+            string replaceString = "Рисунок " + _sectionNumber.ToString()
+            + "." + _pictureNumber.ToString() + " –";
+            //заменяем вхождение ключевого слова на номер
+            textParagraph = textParagraph.Replace(template, replaceString);
+            //вставляем абзац текста
+            var iparagraph = new Paragraph(textParagraph,
+            new Font(baseFont, fontSizeText, Font.ITALIC));
+            iparagraph.SpacingAfter = 12f;
+            iparagraph.Alignment = Element.ALIGN_CENTER;
+            document.Add(iparagraph);
+            return textParagraph;
+        }
+
+        private static string ProcessPageNumberCase(Document document, BaseFont baseFont, string textParagraph, string template)
+        {
+            //увеличиваем номер раздела, начинаем нумерацию рисунков и таблиц заново
+            //так как из нумерация сквозная по разделу
+            _sectionNumber++;
+
+
+            _pictureNumber = 0;
+            _tableNumber = 0;
+            //определяем строку для замены ключевого слова на номер
+            string replaceString = _sectionNumber.ToString();
+            //заменяем вхождение ключевого слова на номер
+            textParagraph = textParagraph.Replace(template, replaceString);
+            //если не первый раздел, делаем разрыв
+            if (_sectionNumber != 1)
+            {
+                document.NewPage();
+            }
+            //вставляем абзац текста
+            var iparagraph = new Paragraph(
+                textParagraph,
+                new Font(baseFont, 13f, Font.BOLD)
+                );
+            iparagraph.SpacingAfter = 15f;
+            iparagraph.ExtraParagraphSpace = 10;
+            iparagraph.Alignment = Element.ALIGN_CENTER;
+            document.Add(iparagraph);
+
+            Chapter chapter = new Chapter(iparagraph, _sectionNumber);
+            document.Add(chapter);
+            return textParagraph;
         }
     }
 }
