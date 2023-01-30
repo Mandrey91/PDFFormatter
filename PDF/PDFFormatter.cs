@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using iTextSharp.text;
 using iTextSharp.text.pdf;
@@ -85,11 +86,14 @@ namespace PDF
             //определяем шрифт
             float fontSizeText = 12f;
             BaseFont baseFont = BaseFont.CreateFont(
-            new System.IO.FileInfo(sourcePath).DirectoryName + "\\" + @"ARIAL.TTF",
-            BaseFont.IDENTITY_H,
-            BaseFont.NOT_EMBEDDED);
+                new FileInfo(sourcePath).DirectoryName + "\\" + @"ARIAL.TTF",
+                BaseFont.IDENTITY_H,
+                BaseFont.NOT_EMBEDDED);
             //считываем все строки из текстового файла
-            string[] paragraphs = System.IO.File.ReadAllLines(sourcePath);
+            IEnumerable<string> paragraphs = File.ReadAllLines(sourcePath)
+                .Select(line => RemoveDoubleWhitespaces(line));
+
+
             //CODEPART 2 обходим все строки файла - параграфы
             foreach (string paragraph in paragraphs)
             {
@@ -224,6 +228,19 @@ namespace PDF
             }
             //закрываем документ
             document.Close();
+        }
+
+        private static IEnumerable<string> NormalizeText(IEnumerable<string> lines)
+        {
+            char nonBreakingSpace = '\u00A0';
+            return lines
+                .Select(line => RemoveDoubleWhitespaces(line))
+                .Select(line => line.Replace("[", $"{nonBreakingSpace}["));
+        }
+
+        private static string RemoveDoubleWhitespaces(string text)
+        {
+           return Regex.Replace(text, @"\s+", " ");
         }
 
         private string UpdateLineAndSourcesList(string textParagraph)
