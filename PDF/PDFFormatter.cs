@@ -12,6 +12,9 @@ namespace PDF
 {
     public class PDFFormatter
     {
+        private const char NonBreakingSpace = '\u00A0';
+
+
         /// <summary>текущий номер раздела в тексте</summary>
         private static int _sectionNumber;
         /// <summary>текущий номер рисунка в тексте<</summary>
@@ -90,9 +93,9 @@ namespace PDF
                 BaseFont.IDENTITY_H,
                 BaseFont.NOT_EMBEDDED);
             //считываем все строки из текстового файла
-            IEnumerable<string> paragraphs = File.ReadAllLines(sourcePath)
-                .Select(line => RemoveDoubleWhitespaces(line));
-
+/*            IEnumerable<string> paragraphs = 
+                .Select(line => RemoveDoubleWhitespaces(line));*/
+            IEnumerable<string> paragraphs = NormalizeText(File.ReadAllLines(sourcePath));
 
             //CODEPART 2 обходим все строки файла - параграфы
             foreach (string paragraph in paragraphs)
@@ -104,111 +107,102 @@ namespace PDF
                 //проверяем, входит ли в параграф ключевое слово
                 foreach (var template in templates)
                 {
-                    if (paragraph.Contains(template))
+                    if (paragraph.Contains(template) == false)
+                        continue;
+
+                    var i = templates.ToList().IndexOf(template);
+                    switch (i)
                     {
-                        var i = templates.ToList().IndexOf(template);
-                        switch (i)
-                        {
-                            //CODEPART 2.1 Редактирование абзаца заголовка раздела
-                            case 0:// "[*номер раздела*]"
-                                {
-                                    textParagraph = ProcessPageNumberCase(document, baseFont, textParagraph, template);
+                        //CODEPART 2.1 Редактирование абзаца заголовка раздела
+                        case 0:// "[*номер раздела*]"
+                            textParagraph = ProcessPageNumberCase(document, baseFont, textParagraph, template);
 
-                                    //абзац уже вставлен
-                                    isSetParagraph = true;
-                                    //TODO (задание на 5) дополните код и шаблон, чтобы велась нумерация подразделов, пунктов,
-                                    //подпунктов со своим форматированием
-                                    //1 раздел
-                                    //1.1 подраздел
-                                    //1.1.1 пункт
-                                    //1.1.1.1 подпункт
-                                }
-                                break;
-                            //CODEPART 2.1 Редактирование подрисуночной подписи
+                            //абзац уже вставлен
+                            isSetParagraph = true;
+                            //TODO (задание на 5) дополните код и шаблон, чтобы велась нумерация подразделов, пунктов,
+                            //подпунктов со своим форматированием
+                            //1 раздел
+                            //1.1 подраздел
+                            //1.1.1 пункт
+                            //1.1.1.1 подпункт
 
-                            case 1://"[*номер рисунка*]"
-                                {
-                                    textParagraph = ProcessPictureNumberCase(document, fontSizeText, baseFont, textParagraph, template);
-                                    isSetParagraph = true;
-                                }
-                                break;
+                            break;
+                        //CODEPART 2.1 Редактирование подрисуночной подписи
 
-                            //CODEPART 2.3 Редактирование заголовка таблицы
+                        case 1://"[*номер рисунка*]"
+                            textParagraph = ProcessPictureNumberCase(document, fontSizeText, baseFont, textParagraph, template);
+                            isSetParagraph = true;
 
-                            case 2://"[*номер таблицы*]"
-                                {
-                                    textParagraph = ProcessTableNumberCase(document, fontSizeText, baseFont, textParagraph, template);
-                                    //абзац уже вставлен
-                                    isSetParagraph = true;
-                                }
-                                break;
-                            //CODEPART 2.4 Вставка ссылки на следующий рисунок
-                            case 3://"[*ссылка на следующий рисунок*]"
-                                {
-                                    textParagraph = ProcessNextPictureLinkCase(textParagraph, template);
-                                }
-                                break;
-                            //CODEPART 2.5 Вставка ссылки на предыдущий рисунок
+                            break;
 
-                            case 4://"[*ссылка на таблицу*]
-                                {
-                                    textParagraph = ProcessCurrentPictureLinkCase(textParagraph, template);
-                                }
-                                break;
+                        //CODEPART 2.3 Редактирование заголовка таблицы
 
-                            //CODEPART 2.6 Вставка ссылки на таблицу
-                            case 5://"[*ссылка на таблицу*]"
-                                {
-                                    textParagraph = ProcessTableLinkCase(textParagraph, template);
-                                }
-                                break;
+                        case 2://"[*номер таблицы*]"
+                            textParagraph = ProcessTableNumberCase(document, fontSizeText, baseFont, textParagraph, template);
+                            //абзац уже вставлен
+                            isSetParagraph = true;
 
-                            //CODEPART 2.7 Вставка таблицы из файла
+                            break;
 
-                            case 6://"[*таблица "
-                                {
-                                    ProcessTableInsertionCase(document, fontSizeText, baseFont, textParagraph, template);
-                                    //TODO (задание на 4) применить свое форматирование к таблице: границы, шрифт, цвет шрифта и заливки
-                                    //абзац уже вставлен
-                                    isSetParagraph = true;
-                                }
-                                break;
-                            //CODEPART 2.8 Вставка списка литературы
-                            case 7://"[*cписок литературы*]"
-                                {
-                                    ProcessSourcesInsertionCase(document, fontSizeText, baseFont);
+                        //CODEPART 2.4 Вставка ссылки на следующий рисунок
+                        case 3://"[*ссылка на следующий рисунок*]"
+                            textParagraph = ProcessNextPictureLinkCase(textParagraph, template);
 
-                                    //абзац уже вставлен
-                                    isSetParagraph = true;
-                                    //TODO (задание на 5) если полнотекстовая ссылка содержит url (начивается с http), то вставить
-                                    //дополнение
-                                    //Название страницы [Электронный источник] // Название сайта, текущий год. Режим доступа: URL (дата
-                                    //обращения: текущая дата).
-                                }
-                                break;
+                            break;
+                        //CODEPART 2.5 Вставка ссылки на предыдущий рисунок
 
-                            //CODEPART 2.9 Вставка кода из файла
+                        case 4://"[*ссылка на таблицу*]
+                            textParagraph = ProcessCurrentPictureLinkCase(textParagraph, template);
 
-                            case 8://"[*код"
-                                {
-                                    //если есть шаблонная строка для места вставки кода
-                                    textParagraph = "тут будет ваш код";
-                                    //TODO (задание на 5) вставить код из файла - CourierNew 8 пт одинарный без отступа в рамке
-                                }
-                                break;
+                            break;
 
-                            //CODEPART 2.10 Вставка рисунка из файл
+                        //CODEPART 2.6 Вставка ссылки на таблицу
+                        case 5://"[*ссылка на таблицу*]"
+                            textParagraph = ProcessTableLinkCase(textParagraph, template);
 
-                            case 9://"[*таблица "
-                                {
-                                    ProcessPictureInsertionCase(document, textParagraph, template);
-                                    //абзац уже вставлен
-                                    isSetParagraph = true;
-                                }
-                                break;
+                            break;
 
-                        }
+                        //CODEPART 2.7 Вставка таблицы из файла
+
+                        case 6://"[*таблица "
+                            ProcessTableInsertionCase(document, fontSizeText, baseFont, textParagraph, template);
+                            //TODO (задание на 4) применить свое форматирование к таблице: границы, шрифт, цвет шрифта и заливки
+                            //абзац уже вставлен
+                            isSetParagraph = true;
+
+                            break;
+
+                        //CODEPART 2.8 Вставка списка литературы
+                        case 7://"[*cписок литературы*]"
+                            ProcessSourcesInsertionCase(document, fontSizeText, baseFont);
+
+                            //абзац уже вставлен
+                            isSetParagraph = true;
+                            //TODO (задание на 5) если полнотекстовая ссылка содержит url (начивается с http), то вставить
+                            //дополнение
+                            //Название страницы [Электронный источник] // Название сайта, текущий год. Режим доступа: URL (дата
+                            //обращения: текущая дата).
+
+                            break;
+
+                        //CODEPART 2.9 Вставка кода из файла
+                        case 8://"[*код"
+                            //если есть шаблонная строка для места вставки кода
+                            textParagraph = "тут будет ваш код";
+                            //TODO (задание на 5) вставить код из файла - CourierNew 8 пт одинарный без отступа в рамке
+                            break;
+
+                        //CODEPART 2.10 Вставка рисунка из файл
+
+                        case 9://"[*таблица "
+                            ProcessPictureInsertionCase(document, textParagraph, template);
+                            //абзац уже вставлен
+                            isSetParagraph = true;
+                            
+                            break;
+
                     }
+
                 }
                 //CODEPART 2.11 Сбор внутритекстовых ссылок на литературу
                 textParagraph = UpdateLineAndSourcesList(textParagraph);
@@ -232,10 +226,9 @@ namespace PDF
 
         private static IEnumerable<string> NormalizeText(IEnumerable<string> lines)
         {
-            char nonBreakingSpace = '\u00A0';
             return lines
                 .Select(line => RemoveDoubleWhitespaces(line))
-                .Select(line => line.Replace("[", $"{nonBreakingSpace}["));
+                .Select(line => line.Replace("[", $"{NonBreakingSpace}["));
         }
 
         private static string RemoveDoubleWhitespaces(string text)
@@ -325,8 +318,12 @@ namespace PDF
             //поэтому эту строку мы должны извлечь
 
             //при этому убираем ненужные части шаблонной строки
-            string jpgPath = textParagraph.Replace(template,
-            "").Replace("*", "").Replace("\r", "").Replace("]", "");
+            string jpgPath = textParagraph
+                .Replace(template, "")
+                .Replace("*", "")
+                .Replace("\r", "")
+                .Replace("]", "")
+                .Replace(NonBreakingSpace.ToString(), "");
 
 
             //файл должен лежать рядом с исходным документом
