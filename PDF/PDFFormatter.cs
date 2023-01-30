@@ -28,6 +28,8 @@ namespace PDF
         /// <summary>список литературы</summary>
         private List<string> sourceList = new List<string>();
 
+        private readonly Dictionary<string, Color> _colors;
+
         public PDFFormatter()
         {
             _sectionNumber = 0;
@@ -50,6 +52,18 @@ namespace PDF
                 "[*рисунок " //9
             };
             sourceList = new List<string>();
+
+            _colors = new Dictionary<string, Color>()
+            {
+                { "red", Color.RED },
+                { "orange", Color.ORANGE },
+                { "yellow", Color.YELLOW },
+                { "green", Color.GREEN },
+                { "blue", Color.BLUE },
+                { "pink", Color.PINK },
+                { "black", Color.BLACK },
+                { "white", Color.WHITE },
+            };
         }
 
         public void Make()
@@ -349,17 +363,37 @@ namespace PDF
 
         private void ProcessTableInsertionCase(Document document, float fontSizeText, BaseFont baseFont, string textParagraph, string template)
         {
+            template = template.Replace("[*", "");
             char[] separators = ";,".ToCharArray();
 
             //по формату мы задаем, что у нас есть шаблоная строка
             //[*таблица XXXXX*] где XXXXX - имя файла csv с таблицей
             //поэтому эту строку мы должны извлечь
             //при этому убираем ненужные части шаблонной строки
-            string csvPath = textParagraph
-                .Replace(template, "")
-                .Replace("*", "")
-                .Replace("\r", "")
-                .Replace("]", "");
+
+            string csvPath = GetStringBetween(textParagraph, "*", "*")
+                .Replace(template, "");
+
+            bool areParametersSpecified = false;
+            string parametersString = GetStringBetween(textParagraph, "(", ")");
+            string[] parameters = parametersString
+                .Replace(" ", "")
+                .Split(separators);
+
+            if (String.IsNullOrEmpty(parametersString) == false)
+            {
+                if (parameters.Length != 4 || parameters.Any(parameter => String.IsNullOrEmpty(parameter)))
+                    throw new InvalidOperationException("Неверно указанны параметры таблицы");
+                
+                areParametersSpecified = true;
+            }
+
+            int border = areParametersSpecified ? int.Parse(parameters[0]) : 15;
+            float fontSize = areParametersSpecified ? float.Parse(parameters[1]) : fontSizeText;
+            Color fontColor = areParametersSpecified ? _colors[parameters[2].ToLower()] : Color.BLACK;
+            Color backgroundColor = areParametersSpecified ? _colors[parameters[3].ToLower()] : Color.WHITE;
+
+
             //файл должен лежать рядом с исходным документом
             //поэтому определим полный путь (извлекаем путь до директории текущего документа)
             csvPath = new FileInfo(sourcePath).DirectoryName + "\\" + csvPath;
@@ -373,12 +407,17 @@ namespace PDF
 
             //создаем таблицу с указанием количества колонок
             PdfPTable table = new PdfPTable(titles.Length);
+
+            var font = new Font(baseFont, fontSize, Font.NORMAL, fontColor);
+
             //заполняем заголовки таблицы
             foreach (string title in titles)
             {
-                var font = new Font(baseFont, fontSizeText, Font.NORMAL);
                 var phrase = new Phrase(title, font);
                 var cell = new PdfPCell(phrase);
+
+                cell.Border = border;
+                cell.BackgroundColor = backgroundColor;
 
                 table.AddCell(cell);
             }
@@ -393,9 +432,11 @@ namespace PDF
 
                 foreach (string value in rowValues)
                 {
-                    var font = new Font(baseFont, fontSizeText, Font.NORMAL);
                     var phrase = new Phrase(value, font);
                     var cell = new PdfPCell(phrase);
+
+                    cell.Border = border;
+                    cell.BackgroundColor = backgroundColor;
 
                     table.AddCell(cell);
                 }
@@ -493,6 +534,19 @@ namespace PDF
             Chapter chapter = new Chapter(iparagraph, _sectionNumber);
             document.Add(chapter);
             return textParagraph;
+        }
+
+        private static string GetStringBetween(string text, string left, string right)
+        {
+            int leftIndex = text.IndexOf(left) + left.Length;
+            int rightIndex = leftIndex + text.Substring(leftIndex).IndexOf(right);
+
+            int length = rightIndex - leftIndex;
+
+            if (length > 0)
+                return text.Substring(leftIndex, length);
+            else
+                return String.Empty;
         }
     }
 }
