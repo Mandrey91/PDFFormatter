@@ -93,6 +93,9 @@ namespace PDF
                 BaseFont.NOT_EMBEDDED);
 
             //считываем все строки из текстового файла
+            // *4 при этом нормализуем текст:
+            // *4   убираем лиишние пробелы
+            // *4   вставляем в нужные места неразрывные пробелы
             IEnumerable<string> paragraphs = NormalizeText(File.ReadAllLines(sourcePath));
 
             //CODEPART 2 обходим все строки файла - параграфы
@@ -222,6 +225,7 @@ namespace PDF
             document.Close();
         }
 
+        // *4 функция для удаления лишних и вставки неразрывных пробелов
         private static IEnumerable<string> NormalizeText(IEnumerable<string> lines)
         {
             return lines
@@ -386,24 +390,41 @@ namespace PDF
             string csvPath = GetStringBetween(textParagraph, "*", "*")
                 .Replace(template, "");
 
+            // *4 флаг, указывающий на факт того, что были указаны параметры таблице в шаблонном файле
             bool areParametersSpecified = false;
+            // *4 получаем строку, что внутри скобок для параметров
             string parametersString = GetStringBetween(textParagraph, "(", ")");
+            // *4 получаем массива параметров, разделив строку по , или ;
             string[] parameters = parametersString
                 .Replace(" ", "")
                 .Split(separators);
 
+            // *4 устанавливаем флаг, если параметры всё-таки были написаны
             if (String.IsNullOrEmpty(parametersString) == false)
             {
+                // *4 если количество параметров - некорректно, кидаем исключение
                 if (parameters.Length != 4 || parameters.Any(parameter => String.IsNullOrEmpty(parameter)))
                     throw new InvalidOperationException("Неверно указанны параметры таблицы");
                 
                 areParametersSpecified = true;
             }
 
-            int border = areParametersSpecified ? int.Parse(parameters[0]) : 15;
-            float fontSize = areParametersSpecified ? float.Parse(parameters[1]) : fontSizeText;
-            Color fontColor = areParametersSpecified ? _colors[parameters[2].ToLower()] : Color.BLACK;
-            Color backgroundColor = areParametersSpecified ? _colors[parameters[3].ToLower()] : Color.WHITE;
+            int border;
+            float fontSize;
+            Color fontColor;
+            Color backgroundColor;
+            // *4 пытаемся считать параметры. при неудаче - кидаем исключение
+            try
+            {
+                border = areParametersSpecified ? int.Parse(parameters[0]) : 15;
+                fontSize = areParametersSpecified ? float.Parse(parameters[1]) : fontSizeText;
+                fontColor = areParametersSpecified ? _colors[parameters[2].ToLower()] : Color.BLACK;
+                backgroundColor = areParametersSpecified ? _colors[parameters[3].ToLower()] : Color.WHITE;
+            }
+            catch (Exception exeption)
+            {
+                throw new InvalidOperationException("Неверно указанны параметры таблицы");
+            }
 
 
             //файл должен лежать рядом с исходным документом
